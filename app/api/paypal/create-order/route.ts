@@ -136,11 +136,16 @@ export async function POST(request: NextRequest) {
       },
     }
 
+    // Use internal order ID as idempotency key to prevent duplicate PayPal orders
+    // If this request is retried, PayPal returns the same order instead of creating a new one
+    const idempotencyKey = `create-${order.id}`
+
     const response = await fetch(`${PAYPAL_API_URL}/v2/checkout/orders`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
+        "PayPal-Request-Id": idempotencyKey,
       },
       body: JSON.stringify(paypalOrder),
     })

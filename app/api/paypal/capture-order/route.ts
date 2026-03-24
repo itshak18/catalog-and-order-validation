@@ -135,6 +135,10 @@ export async function POST(request: NextRequest) {
     // Get PayPal access token
     const accessToken = await getPayPalAccessToken()
 
+    // Use combination of internal order ID and PayPal order ID as idempotency key
+    // This ensures retried capture requests return the same result from PayPal
+    const idempotencyKey = `capture-${order.id}-${body.paypalOrderId}`
+
     // Capture the PayPal order
     const response = await fetch(
       `${PAYPAL_API_URL}/v2/checkout/orders/${body.paypalOrderId}/capture`,
@@ -143,6 +147,7 @@ export async function POST(request: NextRequest) {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
+          "PayPal-Request-Id": idempotencyKey,
         },
       }
     )
