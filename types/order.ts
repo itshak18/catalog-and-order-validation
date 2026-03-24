@@ -4,16 +4,66 @@
 
 import type { Money } from "./catalog"
 
+/**
+ * Payment-specific order statuses.
+ * This is the single source of truth for order state machine.
+ */
 export type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "processing"
-  | "shipped"
-  | "delivered"
-  | "cancelled"
-  | "refunded"
+  | "pending_payment"    // Order created, awaiting payment
+  | "payment_processing" // Payment initiated with provider
+  | "paid"               // Payment confirmed
+  | "failed"             // Payment failed
+  | "cancelled"          // Order cancelled by user or timeout
+  | "refunded"           // Payment refunded
+  // Fulfillment statuses (only reachable from "paid")
+  | "processing"         // Order being prepared
+  | "shipped"            // Order shipped
+  | "delivered"          // Order delivered
 
 export type PaymentProvider = "stripe" | "paypal" | "apple_pay" | "yaad" | "card" | "manual"
+
+/**
+ * Events that trigger order status transitions.
+ */
+export type OrderEvent =
+  | "PAYMENT_INITIATED"
+  | "PAYMENT_CAPTURED"
+  | "PAYMENT_FAILED"
+  | "PAYMENT_CANCELLED"
+  | "PAYMENT_REFUNDED"
+  | "ORDER_PROCESSING"
+  | "ORDER_SHIPPED"
+  | "ORDER_DELIVERED"
+
+/**
+ * Payment event log entry for audit trail.
+ */
+export interface PaymentEvent {
+  id: string
+  timestamp: string
+  event: OrderEvent
+  provider: PaymentProvider
+  providerTransactionId: string | null
+  providerCaptureId: string | null
+  providerStatus: string | null
+  signatureValid: boolean | null
+  rawResponse: Record<string, unknown> | null
+  metadata: Record<string, unknown>
+}
+
+/**
+ * Provider reference storage.
+ */
+export interface ProviderRefs {
+  /** Provider order/transaction ID (e.g., PayPal order ID) */
+  orderId: string | null
+  /** Provider capture ID (e.g., PayPal capture ID) */
+  captureId: string | null
+  /** Provider-specific status */
+  status: string | null
+  /** Last update timestamp from provider */
+  lastUpdated: string | null
+}
 
 export interface CartLine {
   productId: string
@@ -61,7 +111,12 @@ export interface Order {
   email: string
   status: OrderStatus
   paymentProvider: PaymentProvider
-  paymentProviderId: string | null   // e.g. Stripe PaymentIntent ID
+  /** @deprecated Use providerRefs.orderId instead */
+  paymentProviderId: string | null
+  /** Provider references for reconciliation */
+  providerRefs: ProviderRefs
+  /** Payment event audit log */
+  paymentEvents: PaymentEvent[]
   lines: CartLine[]
   shippingAddress: Address
   billingAddress: Address
@@ -73,4 +128,15 @@ export interface Order {
   paidAt: string | null
   shippedAt: string | null
   deliveredAt: string | null
+}
+
+/**
+ * Result of a transition attempt.
+ */
+export interface TransitionResult {
+  success: boolean
+  order: Order | null
+  error: string | null
+  /** True if the order was already in the target state (idempotent) */
+  alreadyInState: boolean
 }

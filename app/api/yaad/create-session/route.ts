@@ -56,8 +56,15 @@ export async function POST(request: NextRequest) {
       // Return mock response for development
       const mockTransactionId = `YAAD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
       
-      // Attach mock Yaad ID to order
-      attachPaymentProviderId(order.id, mockTransactionId)
+      // Attach mock Yaad ID to order (transitions to payment_processing)
+      const result = attachPaymentProviderId(order.id, mockTransactionId)
+      
+      if (!result.success && !result.alreadyInState) {
+        return NextResponse.json(
+          { error: result.error || "Failed to initiate payment" },
+          { status: 400 }
+        )
+      }
 
       const mockRedirectUrl = `/thank-you?orderId=${order.id}&yaadMock=true`
 
@@ -112,9 +119,14 @@ export async function POST(request: NextRequest) {
     const queryString = new URLSearchParams(yaadParams).toString()
     const redirectUrl = `${YAAD_API_URL}?${queryString}`
 
-    // Generate a transaction reference
+    // Generate a transaction reference and transition to payment_processing
     const transactionId = `YAAD-${order.orderNumber}`
-    attachPaymentProviderId(order.id, transactionId)
+    const attachResult = attachPaymentProviderId(order.id, transactionId)
+    
+    if (!attachResult.success && !attachResult.alreadyInState) {
+      console.error("Failed to attach Yaad transaction ID:", attachResult.error)
+      // Continue anyway since we're about to redirect
+    }
 
     return NextResponse.json({
       success: true,
