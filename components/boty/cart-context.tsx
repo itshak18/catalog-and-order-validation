@@ -30,6 +30,7 @@ interface CartContextType {
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
   clearCart: () => void
+  restoreCart: (lines: CartLine[]) => void
 
   // Drawer state
   isOpen: boolean
@@ -72,7 +73,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
     return []
   })
-  
+
   const [promoCode, setPromoCode] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
     try {
@@ -81,7 +82,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return null
     }
   })
-  
+
   const [isOpen, setIsOpen] = useState(false)
   const [promoError, setPromoError] = useState<string | null>(null)
 
@@ -90,14 +91,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Use a ref to track if this is the initial mount to avoid overwriting
   // ─────────────────────────────────────────────────────────────────────────
   const isInitialMount = useState(true)
-  
+
   useEffect(() => {
     // Skip the very first render to avoid overwriting localStorage with initial state
     if (isInitialMount[0]) {
       isInitialMount[0] = false
       return
     }
-    
+
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
     } catch (error) {
@@ -165,6 +166,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const restoreCart = (lines: CartLine[]) => {
+    if (!lines || lines.length === 0) return
+    setItems(lines)
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Promo code actions
   // ─────────────────────────────────────────────────────────────────────────
@@ -230,6 +236,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     removeItem,
     updateQuantity,
     clearCart,
+    restoreCart,
     isOpen,
     setIsOpen,
     promoCode,
