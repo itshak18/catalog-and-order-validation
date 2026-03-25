@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const returnUrl = YAAD_RETURN_URL || `${baseUrl}/api/yaad/callback?type=success`
+    const returnUrl = YAAD_RETURN_URL || `${baseUrl}/api/yaad/return?orderId=${order.id}`
     const notifyUrl = YAAD_NOTIFY_URL || `${baseUrl}/api/yaad/notify`
 
     // Build Yaad Pay parameters

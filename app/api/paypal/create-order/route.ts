@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if PayPal is configured
+    // Check if PayPal is configured BEFORE attempting token fetch
     if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
       // Return mock response for development
       const mockPayPalOrderId = `PAYPAL-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Get PayPal access token
+    // Get PayPal access token (credentials already validated above)
     const accessToken = await getPayPalAccessToken()
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
