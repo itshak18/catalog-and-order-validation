@@ -169,6 +169,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const restoreCart = (lines: CartLine[]) => {
     if (!lines || lines.length === 0) return
     setItems(lines)
+    // Explicitly persist to localStorage so the cart survives navigation
+    // (don't rely on the useEffect chain which has an isInitialMount guard)
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines))
+    } catch (error) {
+      console.error("Failed to persist restored cart:", error)
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
