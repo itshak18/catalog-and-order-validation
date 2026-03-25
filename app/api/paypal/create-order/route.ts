@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
             landing_page: "NO_PREFERENCE",
             user_action: "PAY_NOW",
             return_url: `${baseUrl}/api/paypal/return?orderId=${order.id}`,
-            cancel_url: `${baseUrl}/checkout?error=payment_cancelled`,
+            cancel_url: `${baseUrl}/api/paypal/cancel?orderId=${order.id}`,
           },
         },
       },

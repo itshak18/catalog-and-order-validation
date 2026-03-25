@@ -51,10 +51,14 @@ export default function CheckoutPage() {
   })
   const [shippingMethodId, setShippingMethodId] = useState("standard")
 
-  // Check for error in URL
+  // Check for error or cancellation in URL
   useEffect(() => {
     const errorParam = searchParams.get("error")
-    if (errorParam) {
+    const cancelledParam = searchParams.get("cancelled")
+    
+    if (cancelledParam === "true") {
+      setError("Payment was cancelled. Your cart has been preserved.")
+    } else if (errorParam) {
       const errorMessages: Record<string, string> = {
         payment_failed: "Payment failed. Please try again.",
         payment_cancelled: "Payment was cancelled. Your cart has been preserved.",
