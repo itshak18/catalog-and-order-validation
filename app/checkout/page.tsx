@@ -16,7 +16,7 @@ const inputClass =
   "w-full px-4 py-3 rounded-xl bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring boty-transition"
 
 export default function CheckoutPage() {
-  const { items, subtotal, discount, shipping, total, clearCart, promoCode, discountLabel } = useCart()
+  const { items, subtotal, discount, shipping, total, clearCart, restoreCart, promoCode, discountLabel } = useCart()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -55,9 +55,24 @@ export default function CheckoutPage() {
   useEffect(() => {
     const errorParam = searchParams.get("error")
     const cancelledParam = searchParams.get("cancelled")
-    
+    const orderIdParam = searchParams.get("orderId")
+
     if (cancelledParam === "true") {
       setError("Payment was cancelled. Your cart has been preserved.")
+
+      // Restore cart from the cancelled order's line items
+      if (orderIdParam && items.length === 0) {
+        fetch(`/api/orders/${orderIdParam}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.order?.lines && data.order.lines.length > 0) {
+              restoreCart(data.order.lines)
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to restore cart from cancelled order:", err)
+          })
+      }
     } else if (errorParam) {
       const errorMessages: Record<string, string> = {
         payment_failed: "Payment failed. Please try again.",
@@ -69,6 +84,21 @@ export default function CheckoutPage() {
         unknown_callback: "An unexpected error occurred. Please try again.",
       }
       setError(errorMessages[errorParam] || "An error occurred. Please try again.")
+
+      // Also restore cart on payment_failed/payment_cancelled errors if orderId is present
+      if (orderIdParam && items.length === 0 &&
+        (errorParam === "payment_failed" || errorParam === "payment_cancelled")) {
+        fetch(`/api/orders/${orderIdParam}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.order?.lines && data.order.lines.length > 0) {
+              restoreCart(data.order.lines)
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to restore cart from order:", err)
+          })
+      }
     }
   }, [searchParams])
 
@@ -221,20 +251,18 @@ export default function CheckoutPage() {
               <div key={step} className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium boty-transition ${
-                      i === 1
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium boty-transition ${i === 1
                         ? "bg-primary text-primary-foreground"
                         : i < 1
-                        ? "bg-primary/30 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+                          ? "bg-primary/30 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
                   >
                     {i + 1}
                   </div>
                   <span
-                    className={`text-sm boty-transition ${
-                      i === 1 ? "text-foreground font-medium" : "text-muted-foreground"
-                    }`}
+                    className={`text-sm boty-transition ${i === 1 ? "text-foreground font-medium" : "text-muted-foreground"
+                      }`}
                   >
                     {step}
                   </span>
@@ -438,11 +466,10 @@ export default function CheckoutPage() {
                         key={tab.id}
                         type="button"
                         onClick={() => setPaymentMethod(tab.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm boty-transition border-2 ${
-                          paymentMethod === tab.id
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm boty-transition border-2 ${paymentMethod === tab.id
                             ? "border-primary bg-primary/5 text-foreground"
                             : "border-border bg-card text-muted-foreground hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         {tab.icon && <tab.icon className="w-4 h-4" />}
                         <span>{tab.label}</span>
