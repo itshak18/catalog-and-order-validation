@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useState, useMemo, useEffect, type ReactNode } from "react"
 import type { CartLine } from "@/types/order"
 import {
   calculatePricing,
@@ -9,6 +9,10 @@ import {
   type PricingBreakdown,
 } from "@/lib/pricing"
 import { validateCoupon, getCouponDiscount, formatDiscountPercent } from "@/lib/coupons"
+
+// localStorage keys for cart persistence
+const CART_STORAGE_KEY = "juliris_cart"
+const PROMO_STORAGE_KEY = "juliris_promo"
 
 // Re-export CartLine type for consumers
 export type { CartLine }
@@ -55,6 +59,58 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const [promoCode, setPromoCode] = useState<string | null>(null)
   const [promoError, setPromoError] = useState<string | null>(null)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Load cart from localStorage on mount (client-side only)
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    try {
+      const storedCart = localStorage.getItem(CART_STORAGE_KEY)
+      const storedPromo = localStorage.getItem(PROMO_STORAGE_KEY)
+      
+      if (storedCart) {
+        const parsedCart = JSON.parse(storedCart)
+        if (Array.isArray(parsedCart)) {
+          setItems(parsedCart)
+        }
+      }
+      
+      if (storedPromo) {
+        setPromoCode(storedPromo)
+      }
+    } catch (error) {
+      console.error("Failed to load cart from localStorage:", error)
+    }
+    setIsHydrated(true)
+  }, [])
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Persist cart to localStorage on changes (after hydration)
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isHydrated) return
+    
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
+    } catch (error) {
+      console.error("Failed to save cart to localStorage:", error)
+    }
+  }, [items, isHydrated])
+
+  useEffect(() => {
+    if (!isHydrated) return
+    
+    try {
+      if (promoCode) {
+        localStorage.setItem(PROMO_STORAGE_KEY, promoCode)
+      } else {
+        localStorage.removeItem(PROMO_STORAGE_KEY)
+      }
+    } catch (error) {
+      console.error("Failed to save promo to localStorage:", error)
+    }
+  }, [promoCode, isHydrated])
 
   // ─────────────────────────────────────────────────────────────────────────
   // Cart actions
@@ -95,6 +151,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([])
     setPromoCode(null)
     setPromoError(null)
+    // Also clear localStorage
+    try {
+      localStorage.removeItem(CART_STORAGE_KEY)
+      localStorage.removeItem(PROMO_STORAGE_KEY)
+    } catch (error) {
+      console.error("Failed to clear cart from localStorage:", error)
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

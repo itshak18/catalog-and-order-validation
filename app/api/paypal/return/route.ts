@@ -30,6 +30,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // GUARD: If order is already paid, redirect to thank-you without calling PayPal
+    // This prevents unnecessary API calls on URL replay or browser refresh
+    if (order.status === "paid") {
+      console.info("PayPal return: Order already paid, skipping capture", { orderId })
+      return NextResponse.redirect(
+        new URL(`/thank-you?orderId=${orderId}&orderNumber=${order.orderNumber}`, request.url)
+      )
+    }
+
     // Capture the PayPal order by calling the capture endpoint
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
     const captureResponse = await fetch(`${baseUrl}/api/paypal/capture-order`, {
