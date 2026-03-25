@@ -12,7 +12,6 @@ import {
   markOrderFailed,
   markOrderCancelled,
   isPaymentTerminal,
-  transitionOrderStatus,
 } from "@/lib/orders"
 
 const YAAD_API_KEY = process.env.YAAD_API_KEY
@@ -94,37 +93,56 @@ function processYaadPayment(
   // Process based on Yaad status code
   // CCode === "0" means success in Yaad
   if (status === "0") {
+    // CRITICAL: Amount field is mandatory for success
+    if (!callbackAmount) {
+      console.error("Yaad success callback missing Amount field", {
+        orderId: order.id,
+        transactionId,
+        payload: yaadPayload,
+      })
+
+      markOrderFailed(order.id, {
+        providerTransactionId: transactionId || undefined,
+        providerStatus: "MISSING_AMOUNT",
+        rawResponse: yaadPayload,
+      })
+
+      return { 
+        success: false, 
+        error: "Payment success reported but amount is missing. Order marked failed for manual review.",
+        idempotent: false,
+      }
+    }
+
     // CRITICAL: Reconcile callback amount against internal order total
-    if (callbackAmount) {
-      // Yaad sends amount in cents, so convert internal total from cents
-      const internalAmount = (order.totals.total.amount / 100).toFixed(2)
-      const yaadAmount = (parseFloat(callbackAmount) / 100).toFixed(2)
+    // Yaad sends amount in cents, so convert internal total from cents
+    const internalAmount = (order.totals.total.amount / 100).toFixed(2)
+    const yaadAmount = (parseFloat(callbackAmount) / 100).toFixed(2)
 
-      if (yaadAmount !== internalAmount) {
-        console.error("Yaad amount mismatch", {
-          orderId: order.id,
-          expected: internalAmount,
-          received: yaadAmount,
-          transactionId,
-        })
+    if (yaadAmount !== internalAmount) {
+      console.error("Yaad amount mismatch", {
+        orderId: order.id,
+        expected: internalAmount,
+        received: yaadAmount,
+        transactionId,
+      })
 
-        markOrderFailed(order.id, {
-          providerTransactionId: transactionId || undefined,
-          providerStatus: "AMOUNT_MISMATCH",
-          rawResponse: {
-            ...yaadPayload,
-            reconciliation: {
-              expected: internalAmount,
-              received: yaadAmount,
-            },
+      markOrderFailed(order.id, {
+        providerTransactionId: transactionId || undefined,
+        providerStatus: "AMOUNT_MISMATCH",
+        rawResponse: {
+          ...yaadPayload,
+          reconciliation: {
+            expected: internalAmount,
+            received: yaadAmount,
           },
-        })
+        },
+      })
 
-        return { 
-          success: false, 
-          error: `Amount mismatch: expected ${internalAmount}, received ${yaadAmount}`,
-          idempotent: false,
-        }
+      return { 
+        success: false, 
+        error: `Amount mismatch: expected ${internalAmount}, received ${yaadAmount}`,
+        idempotent: false,
       }
     }
 
