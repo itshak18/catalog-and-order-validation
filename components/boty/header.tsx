@@ -35,6 +35,12 @@ export function Header() {
               Shop
             </Link>
             <Link
+              href="/collections"
+              className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
+            >
+              Collections
+            </Link>
+            <Link
               href="/about"
               className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
             >
@@ -93,7 +99,7 @@ export function Header() {
         {/* Mobile Navigation */}
         <div
           className={`lg:hidden overflow-hidden boty-transition ${
-            isMenuOpen ? "max-h-64 pb-6" : "max-h-0"
+            isMenuOpen ? "max-h-72 pb-6" : "max-h-0"
           }`}
         >
           <div className="flex flex-col gap-4 pt-4 border-t border-border/50">
@@ -102,6 +108,12 @@ export function Header() {
               className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
             >
               Shop
+            </Link>
+            <Link
+              href="/collections"
+              className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
+            >
+              Collections
             </Link>
             <Link
               href="/about"
