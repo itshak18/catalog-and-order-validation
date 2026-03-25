@@ -1,8 +1,10 @@
 /**
- * Yaad callback handlers for both redirect (GET) and IPN (POST).
+ * POST /api/yaad/notify
  * 
- * Idempotency: Both handlers check order state before transitioning.
- * A paid order remains paid regardless of callback replay.
+ * Server-to-server IPN endpoint for Yaad payment notifications.
+ * This is the authoritative payment confirmation - the browser redirect is only for UX.
+ * 
+ * This route reuses the same processing logic as /api/yaad/callback POST handler.
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -54,8 +56,7 @@ function extractYaadPayload(params: URLSearchParams): Record<string, unknown> {
 }
 
 /**
- * Process Yaad payment result.
- * Unified logic for both GET redirect and POST IPN.
+ * Process Yaad payment result (server-to-server notification).
  */
 function processYaadPayment(
   order: ReturnType<typeof getOrderById>,
@@ -68,7 +69,7 @@ function processYaadPayment(
 
   const status = params.get("CCode") || params.get("status")
   const transactionId = params.get("Id") || params.get("trans_id")
-  const callbackAmount = params.get("Amount") // Amount from Yaad callback
+  const callbackAmount = params.get("Amount")
   const yaadPayload = extractYaadPayload(params)
 
   // IDEMPOTENCY CHECK: If already paid with this transaction, return success
@@ -76,8 +77,7 @@ function processYaadPayment(
     if (order.providerRefs.orderId === transactionId) {
       return { success: true, idempotent: true }
     }
-    // Different transaction on already-paid order - suspicious but don't change state
-    console.warn("Yaad callback received for already-paid order with different transaction", {
+    console.warn("Yaad notify received for already-paid order with different transaction", {
       orderId: order.id,
       existingTransaction: order.providerRefs.orderId,
       newTransaction: transactionId,
@@ -90,12 +90,11 @@ function processYaadPayment(
     return { success: true, idempotent: true }
   }
 
-  // Process based on Yaad status code
-  // CCode === "0" means success in Yaad
+  // Process based on Yaad status code (CCode === "0" means success)
   if (status === "0") {
     // CRITICAL: Amount field is mandatory for success
     if (!callbackAmount) {
-      console.error("Yaad success callback missing Amount field", {
+      console.error("Yaad notify: Success callback missing Amount field", {
         orderId: order.id,
         transactionId,
         payload: yaadPayload,
@@ -115,13 +114,13 @@ function processYaadPayment(
     }
 
     // CRITICAL: Reconcile callback amount against internal order total
-    // Note: amounts are in dollars from the pricing module
-    // Yaad sends amount in the same units (dollars for USD)
+    // Note: amounts are in dollars, Yaad sends amount in agorot (cents) for ILS
+    // For USD amounts, we compare directly
     const internalAmount = order.totals.total.amount.toFixed(2)
     const yaadAmount = parseFloat(callbackAmount).toFixed(2)
 
     if (yaadAmount !== internalAmount) {
-      console.error("Yaad amount mismatch", {
+      console.error("Yaad notify: Amount mismatch", {
         orderId: order.id,
         expected: internalAmount,
         received: yaadAmount,
@@ -153,7 +152,7 @@ function processYaadPayment(
       rawResponse: {
         ...yaadPayload,
         signatureValid,
-        source: "yaad_callback",
+        source: "yaad_notify",
       },
     })
 
@@ -189,97 +188,7 @@ function processYaadPayment(
 }
 
 /**
- * GET /api/yaad/callback
- * Success/error redirect callback from Yaad.
- */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const type = searchParams.get("type")
-    const orderId = searchParams.get("tmp") || searchParams.get("orderId")
-
-    // Handle mock mode for development
-    if (searchParams.get("yaadMock") === "true" && orderId) {
-      const order = getOrderById(orderId)
-      if (order) {
-        const result = markOrderPaid(order.id, {
-          providerTransactionId: `YAAD_MOCK_${Date.now()}`,
-          providerStatus: "COMPLETED",
-          rawResponse: { mock: true, timestamp: new Date().toISOString() },
-        })
-        
-        // Return success even if already paid (idempotent)
-        if (result.success || result.alreadyInState) {
-          return NextResponse.redirect(
-            new URL(`/thank-you?orderId=${orderId}`, request.url)
-          )
-        }
-      }
-      return NextResponse.redirect(
-        new URL("/checkout?error=mock_failed", request.url)
-      )
-    }
-
-    if (!orderId) {
-      console.error("Yaad callback: Missing order ID")
-      return NextResponse.redirect(
-        new URL("/checkout?error=missing_order", request.url)
-      )
-    }
-
-    const order = getOrderById(orderId)
-    if (!order) {
-      console.error("Yaad callback: Order not found", orderId)
-      return NextResponse.redirect(
-        new URL("/checkout?error=order_not_found", request.url)
-      )
-    }
-
-    // Verify signature if configured
-    let signatureValid = true
-    if (YAAD_API_KEY) {
-      signatureValid = verifyYaadSignature(searchParams, YAAD_API_KEY)
-      if (!signatureValid) {
-        console.warn("Yaad callback: Invalid signature on redirect", { 
-          orderId, 
-          params: Object.fromEntries(searchParams),
-          note: "IPN will be authoritative confirmation"
-        })
-        
-        // Do NOT fail the order on signature mismatch from browser redirect
-        // The POST/IPN is the authoritative payment confirmation
-        // Invalid redirect signature could be tampering, but the user hasn't paid yet at this point
-        // Wait for the server-to-server IPN to confirm payment status
-        
-        return NextResponse.redirect(
-          new URL("/checkout?error=invalid_signature", request.url)
-        )
-      }
-    }
-
-    // Process the payment
-    const result = processYaadPayment(order, searchParams, signatureValid)
-
-    if (result.success) {
-      return NextResponse.redirect(
-        new URL(`/thank-you?orderId=${order.id}&orderNumber=${order.orderNumber}`, request.url)
-      )
-    } else {
-      const errorCode = searchParams.get("Rone") || searchParams.get("error_code") || "unknown"
-      return NextResponse.redirect(
-        new URL(`/checkout?error=payment_failed&code=${errorCode}`, request.url)
-      )
-    }
-  } catch (error) {
-    console.error("Error processing Yaad redirect callback:", error)
-    return NextResponse.redirect(
-      new URL("/checkout?error=callback_error", request.url)
-    )
-  }
-}
-
-/**
- * POST /api/yaad/callback
+ * POST /api/yaad/notify
  * Server-to-server IPN notification from Yaad.
  * This is the authoritative payment confirmation.
  */
@@ -289,11 +198,9 @@ export async function POST(request: NextRequest) {
     const params = new URLSearchParams(body)
 
     const orderId = params.get("tmp") || params.get("orderId")
-    const transactionId = params.get("Id") || params.get("trans_id")
-
-    console.log("Yaad IPN received:", { orderId, transactionId, status: params.get("CCode") })
 
     if (!orderId) {
+      console.error("Yaad notify: Missing order ID", { params: Object.fromEntries(params) })
       return NextResponse.json(
         { error: "Missing order ID" },
         { status: 400 }
@@ -302,45 +209,52 @@ export async function POST(request: NextRequest) {
 
     const order = getOrderById(orderId)
     if (!order) {
+      console.error("Yaad notify: Order not found", orderId)
       return NextResponse.json(
         { error: "Order not found" },
         { status: 404 }
       )
     }
 
-    // Verify signature - IPN signature verification is critical
-    let signatureValid = true
+    // Verify signature (mandatory for server-to-server)
+    let signatureValid = false
     if (YAAD_API_KEY) {
       signatureValid = verifyYaadSignature(params, YAAD_API_KEY)
       if (!signatureValid) {
-        console.error("Yaad IPN: Invalid signature", { orderId, transactionId })
+        console.error("Yaad notify: Invalid signature", {
+          orderId,
+          params: Object.fromEntries(params),
+        })
         return NextResponse.json(
           { error: "Invalid signature" },
           { status: 400 }
         )
       }
+    } else {
+      // In development without API key, log warning but continue
+      console.warn("Yaad notify: No API key configured, skipping signature verification")
+      signatureValid = true
     }
 
-    // Process the payment
     const result = processYaadPayment(order, params, signatureValid)
 
     if (result.success) {
       return NextResponse.json({
         success: true,
-        status: order.status,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
         idempotent: result.idempotent,
       })
     } else {
-      return NextResponse.json({
-        success: false,
-        error: result.error,
-        status: order.status,
-      })
+      return NextResponse.json(
+        { error: result.error },
+        { status: 400 }
+      )
     }
   } catch (error) {
-    console.error("Error processing Yaad IPN:", error)
+    console.error("Error processing Yaad notify:", error)
     return NextResponse.json(
-      { error: "Failed to process notification" },
+      { error: "Internal server error" },
       { status: 500 }
     )
   }

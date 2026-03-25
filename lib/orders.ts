@@ -1,5 +1,8 @@
 /**
  * Order management utilities with state machine and idempotency protection.
+ * 
+ * PERSISTENCE: Orders are stored in a JSON file to survive restarts.
+ * In production, this should be replaced with a proper database.
  */
 
 import type {
@@ -15,18 +18,95 @@ import type {
 } from "@/types/order"
 import { calculatePricing } from "./pricing"
 import { getCouponDiscount, incrementCouponUsage } from "./coupons"
+import * as fs from "fs"
+import * as path from "path"
 
 /**
- * In-memory order store (would be a database in production).
+ * File path for order persistence.
  */
-const orders: Map<string, Order> = new Map()
+const ORDERS_FILE = path.join(process.cwd(), "data", "orders.json")
+const CAPTURES_FILE = path.join(process.cwd(), "data", "processed-captures.json")
+
+/**
+ * Ensure data directory exists.
+ */
+function ensureDataDir(): void {
+  const dataDir = path.join(process.cwd(), "data")
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true })
+  }
+}
+
+/**
+ * Load orders from file.
+ */
+function loadOrders(): Map<string, Order> {
+  try {
+    if (fs.existsSync(ORDERS_FILE)) {
+      const data = fs.readFileSync(ORDERS_FILE, "utf-8")
+      const ordersArray: [string, Order][] = JSON.parse(data)
+      return new Map(ordersArray)
+    }
+  } catch (error) {
+    console.error("Failed to load orders from file:", error)
+  }
+  return new Map()
+}
+
+/**
+ * Save orders to file.
+ */
+function saveOrders(): void {
+  try {
+    ensureDataDir()
+    const ordersArray = Array.from(orders.entries())
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(ordersArray, null, 2))
+  } catch (error) {
+    console.error("Failed to save orders to file:", error)
+  }
+}
+
+/**
+ * Load processed captures from file.
+ */
+function loadCaptures(): Map<string, string> {
+  try {
+    if (fs.existsSync(CAPTURES_FILE)) {
+      const data = fs.readFileSync(CAPTURES_FILE, "utf-8")
+      const capturesArray: [string, string][] = JSON.parse(data)
+      return new Map(capturesArray)
+    }
+  } catch (error) {
+    console.error("Failed to load captures from file:", error)
+  }
+  return new Map()
+}
+
+/**
+ * Save processed captures to file.
+ */
+function saveCaptures(): void {
+  try {
+    ensureDataDir()
+    const capturesArray = Array.from(processedCaptures.entries())
+    fs.writeFileSync(CAPTURES_FILE, JSON.stringify(capturesArray, null, 2))
+  } catch (error) {
+    console.error("Failed to save captures to file:", error)
+  }
+}
+
+/**
+ * Order store with file persistence.
+ * Loads from file on startup, saves on every mutation.
+ */
+const orders: Map<string, Order> = loadOrders()
 
 /**
  * Track processed provider captures to prevent double-capture.
  * Map of providerCaptureId -> orderId
  * Note: This uses the actual capture ID from the provider, not the order ID.
  */
-const processedCaptures: Map<string, string> = new Map()
+const processedCaptures: Map<string, string> = loadCaptures()
 
 /**
  * Valid state transitions.
@@ -230,9 +310,10 @@ export function transitionOrderStatus(
           }
         }
       }
-      // Mark this capture as processed
-      processedCaptures.set(captureKey, orderId)
-    }
+    // Mark this capture as processed
+    processedCaptures.set(captureKey, orderId)
+    saveCaptures()
+  }
   }
 
   // Perform the transition
@@ -270,6 +351,9 @@ export function transitionOrderStatus(
   // Append payment event to audit log
   const paymentEvent = createPaymentEvent(event, order.paymentProvider, payload)
   order.paymentEvents.push(paymentEvent)
+
+  // Persist changes to file
+  saveOrders()
 
   return {
     success: true,
@@ -329,6 +413,7 @@ export function createPendingOrder(
   }
 
   orders.set(order.id, order)
+  saveOrders()
   return order
 }
 
@@ -393,6 +478,8 @@ export function markOrderFailed(
       )
       order.paymentEvents.push(paymentEvent)
       order.updatedAt = new Date().toISOString()
+      // Persist the audit event
+      saveOrders()
       return {
         success: true,
         order,
@@ -461,6 +548,9 @@ export function updateProviderRefs(
 
   // Backward compatibility
   if (refs.orderId) order.paymentProviderId = refs.orderId
+
+  // Persist changes
+  saveOrders()
 
   return order
 }

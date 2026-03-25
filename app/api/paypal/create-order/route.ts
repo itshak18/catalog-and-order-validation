@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if PayPal is configured
+    // Check if PayPal is configured BEFORE attempting token fetch
     if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
       // Return mock response for development
       const mockPayPalOrderId = `PAYPAL-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
@@ -84,16 +84,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Get PayPal access token
+    // Get PayPal access token (credentials already validated above)
     const accessToken = await getPayPalAccessToken()
 
-    // Create PayPal order
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+
+    // Create PayPal order using the current v2 Orders API structure
+    // Note: amounts are already in dollars from the pricing module
     const paypalOrder = {
       intent: "CAPTURE",
       purchase_units: [
         {
           reference_id: order.id,
-          description: `Boty Order ${order.orderNumber}`,
+          description: `Juliris Order ${order.orderNumber}`,
           amount: {
             currency_code: order.totals.total.currency,
             value: order.totals.total.amount.toFixed(2),
@@ -127,12 +130,18 @@ export async function POST(request: NextRequest) {
           })),
         },
       ],
-      application_context: {
-        brand_name: "Boty",
-        landing_page: "NO_PREFERENCE",
-        user_action: "PAY_NOW",
-        return_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/paypal/return?orderId=${order.id}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/checkout?error=payment_cancelled`,
+      // Use payment_source.paypal.experience_context per current PayPal v2 Orders API spec
+      // application_context is deprecated and URLs may be ignored
+      payment_source: {
+        paypal: {
+          experience_context: {
+            brand_name: "Juliris",
+            landing_page: "NO_PREFERENCE",
+            user_action: "PAY_NOW",
+            return_url: `${baseUrl}/api/paypal/return?orderId=${order.id}`,
+            cancel_url: `${baseUrl}/api/paypal/cancel?orderId=${order.id}`,
+          },
+        },
       },
     }
 
@@ -162,8 +171,43 @@ export async function POST(request: NextRequest) {
     const attachResult = attachPaymentProviderId(order.id, paypalResponse.id)
     
     if (!attachResult.success && !attachResult.alreadyInState) {
-      console.error("Failed to attach PayPal order ID:", attachResult.error)
-      // Continue anyway since PayPal order was created successfully
+      // Attach failed but PayPal order was already created
+      // This is a critical inconsistency - return error for reconciliation
+      console.error("Failed to attach PayPal order ID to internal order:", {
+        error: attachResult.error,
+        orderId: order.id,
+        paypalOrderId: paypalResponse.id,
+        storedProviderId: order.providerRefs.orderId,
+      })
+
+      // If the stored provider ID is different from what PayPal returned, this is a real error
+      if (order.providerRefs.orderId && order.providerRefs.orderId !== paypalResponse.id) {
+        return NextResponse.json(
+          {
+            error: "PayPal order created but internal state update failed. Requires manual reconciliation.",
+            reconciliationRequired: true,
+            paypalOrderId: paypalResponse.id,
+            internalOrderId: order.id,
+            storedPayPalOrderId: order.providerRefs.orderId,
+          },
+          { status: 500 }
+        )
+      }
+
+      // If stored ID matches PayPal ID, it was idempotent - continue
+      if (order.providerRefs.orderId === paypalResponse.id) {
+        console.info("Attach was idempotent - same PayPal order ID already stored")
+      } else {
+        // No stored ID but attach failed for another reason - don't proceed
+        return NextResponse.json(
+          {
+            error: "Failed to link PayPal order to internal order.",
+            reconciliationRequired: true,
+            paypalOrderId: paypalResponse.id,
+          },
+          { status: 500 }
+        )
+      }
     }
 
     // Find approval URL

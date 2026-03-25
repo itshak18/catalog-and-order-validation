@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
           const capturedCurrency = orderData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.currency_code
 
           // CRITICAL: Same amount/currency reconciliation as fresh capture
-          const internalAmount = (order.totals.total.amount / 100).toFixed(2)
+          // Note: amounts are already in dollars from the pricing module
+          const internalAmount = order.totals.total.amount.toFixed(2)
           const internalCurrency = order.totals.total.currency
 
           if (!capturedAmount || !capturedCurrency) {
@@ -317,7 +318,8 @@ export async function POST(request: NextRequest) {
     // Check capture status
     if (captureData.status === "COMPLETED" && captureStatus === "COMPLETED") {
       // CRITICAL: Reconcile captured amount and currency against internal order
-      const internalAmount = (order.totals.total.amount / 100).toFixed(2) // Convert cents to dollars
+      // Note: amounts are already in dollars from the pricing module
+      const internalAmount = order.totals.total.amount.toFixed(2)
       const internalCurrency = order.totals.total.currency
 
       if (!capturedAmount || !capturedCurrency) {

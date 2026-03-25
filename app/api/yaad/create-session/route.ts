@@ -77,15 +77,15 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const returnUrl = YAAD_RETURN_URL || `${baseUrl}/api/yaad/callback?type=success`
-    const notifyUrl = YAAD_NOTIFY_URL || `${baseUrl}/api/yaad/callback`
+    const returnUrl = YAAD_RETURN_URL || `${baseUrl}/api/yaad/return?orderId=${order.id}`
+    const notifyUrl = YAAD_NOTIFY_URL || `${baseUrl}/api/yaad/notify`
 
     // Build Yaad Pay parameters
     const yaadParams: Record<string, string> = {
       Masof: YAAD_TERMINAL_NUMBER,
       action: "pay",
       Order: order.orderNumber,
-      Info: `Boty Order ${order.orderNumber}`,
+      Info: `Juliris Order ${order.orderNumber}`,
       Amount: order.totals.total.amount.toFixed(2),
       Currency: "1", // 1 = ILS, use appropriate code for your currency
       UTF8: "True",
@@ -103,8 +103,9 @@ export async function POST(request: NextRequest) {
       sendemail: "True",
       // Callback URLs
       SuccessUrl: returnUrl,
+      NotifyUrl: notifyUrl, // Server-to-server IPN - authoritative payment confirmation
       ErrorUrl: `${baseUrl}/api/yaad/callback?type=error`,
-      CancelUrl: `${baseUrl}/checkout`,
+      CancelUrl: `${baseUrl}/checkout?error=payment_cancelled`,
       // Internal reference
       J5: "False", // Redirect mode
       Postpone: "False",
