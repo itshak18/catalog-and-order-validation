@@ -55,52 +55,57 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartLine[]>([])
-  const [isOpen, setIsOpen] = useState(false)
-  const [promoCode, setPromoCode] = useState<string | null>(null)
-  const [promoError, setPromoError] = useState<string | null>(null)
-  const [isHydrated, setIsHydrated] = useState(false)
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Load cart from localStorage on mount (client-side only)
-  // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
+  // Initialize with a function to avoid SSR/hydration mismatch
+  const [items, setItems] = useState<CartLine[]>(() => {
+    // Only access localStorage on client side
+    if (typeof window === "undefined") return []
     try {
       const storedCart = localStorage.getItem(CART_STORAGE_KEY)
-      const storedPromo = localStorage.getItem(PROMO_STORAGE_KEY)
-      
       if (storedCart) {
         const parsedCart = JSON.parse(storedCart)
-        if (Array.isArray(parsedCart)) {
-          setItems(parsedCart)
+        if (Array.isArray(parsedCart) && parsedCart.length > 0) {
+          return parsedCart
         }
-      }
-      
-      if (storedPromo) {
-        setPromoCode(storedPromo)
       }
     } catch (error) {
       console.error("Failed to load cart from localStorage:", error)
     }
-    setIsHydrated(true)
-  }, [])
+    return []
+  })
+  
+  const [promoCode, setPromoCode] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    try {
+      return localStorage.getItem(PROMO_STORAGE_KEY)
+    } catch {
+      return null
+    }
+  })
+  
+  const [isOpen, setIsOpen] = useState(false)
+  const [promoError, setPromoError] = useState<string | null>(null)
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Persist cart to localStorage on changes (after hydration)
+  // Persist cart to localStorage on changes
+  // Use a ref to track if this is the initial mount to avoid overwriting
   // ─────────────────────────────────────────────────────────────────────────
+  const isInitialMount = useState(true)
+  
   useEffect(() => {
-    if (!isHydrated) return
+    // Skip the very first render to avoid overwriting localStorage with initial state
+    if (isInitialMount[0]) {
+      isInitialMount[0] = false
+      return
+    }
     
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
     } catch (error) {
       console.error("Failed to save cart to localStorage:", error)
     }
-  }, [items, isHydrated])
+  }, [items])
 
   useEffect(() => {
-    if (!isHydrated) return
-    
     try {
       if (promoCode) {
         localStorage.setItem(PROMO_STORAGE_KEY, promoCode)
@@ -110,7 +115,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Failed to save promo to localStorage:", error)
     }
-  }, [promoCode, isHydrated])
+  }, [promoCode])
 
   // ─────────────────────────────────────────────────────────────────────────
   // Cart actions
