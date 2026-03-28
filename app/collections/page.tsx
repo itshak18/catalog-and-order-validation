@@ -2,13 +2,48 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Sparkles, Tag, Gift, Star } from "lucide-react"
 import { Header } from "@/components/boty/header"
 import { Footer } from "@/components/boty/footer"
 import { getAllCategories } from "@/lib/catalog"
+import { getAllCollections } from "@/lib/collections"
+import type { Collection } from "@/types/collection"
+
+// Helper to get icon for collection type
+function getCollectionIcon(type: Collection["type"]) {
+  switch (type) {
+    case "sale":
+      return <Tag className="w-4 h-4" />
+    case "new":
+      return <Sparkles className="w-4 h-4" />
+    case "seasonal":
+      return <Gift className="w-4 h-4" />
+    case "exclusive":
+      return <Star className="w-4 h-4" />
+    default:
+      return null
+  }
+}
+
+// Helper to get badge styles for collection type
+function getCollectionBadgeStyles(type: Collection["type"]) {
+  switch (type) {
+    case "sale":
+      return "bg-destructive/10 text-destructive"
+    case "new":
+      return "bg-primary/10 text-primary"
+    case "seasonal":
+      return "bg-amber-500/10 text-amber-700"
+    case "exclusive":
+      return "bg-[#4F5B3A]/10 text-[#4F5B3A]"
+    default:
+      return "bg-accent text-accent-foreground"
+  }
+}
 
 export default function CollectionsPage() {
-  const collections = getAllCategories()
+  const categories = getAllCategories()
+  const specialCollections = getAllCollections().filter(c => c.type !== "category")
 
   return (
     <main className="min-h-screen bg-background">
@@ -26,21 +61,87 @@ export default function CollectionsPage() {
         </div>
       </section>
 
-      {/* Collections Grid */}
+      {/* Special Collections (Sales, New Arrivals, etc.) */}
+      {specialCollections.length > 0 && (
+        <section className="px-4 pb-16">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="font-serif text-3xl text-foreground mb-8 animate-fade-in">
+              Featured Collections
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {specialCollections.map((collection, idx) => (
+                <Link
+                  key={collection.id}
+                  href={`/collection/${collection.slug}`}
+                  className="group animate-fade-in"
+                  style={{ animationDelay: `${idx * 80}ms` }}
+                >
+                  <div className="relative overflow-hidden rounded-2xl bg-card boty-shadow hover:boty-shadow-lg boty-transition h-full">
+                    {/* Image */}
+                    <div className="relative h-48 overflow-hidden bg-muted">
+                      {collection.banner?.image ? (
+                        <Image
+                          src={collection.banner.image}
+                          alt={collection.name}
+                          fill
+                          className="object-cover group-hover:scale-110 boty-transition"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 boty-transition" />
+                      
+                      {/* Badge */}
+                      {collection.badge && (
+                        <span
+                          className={`absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs tracking-wide ${getCollectionBadgeStyles(collection.type)}`}
+                        >
+                          {getCollectionIcon(collection.type)}
+                          {collection.badge.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6">
+                      <h3 className="font-serif text-xl text-foreground mb-2 group-hover:text-primary boty-transition">
+                        {collection.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                        {collection.description}
+                      </p>
+                      <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 boty-transition">
+                        <span>Shop Collection</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Category Collections Grid */}
       <section className="px-4 pb-20">
         <div className="max-w-7xl mx-auto">
-          {/* Featured Large Collection - First Item */}
-          {collections.length > 0 && (
-            <div className="mb-16 animate-fade-in" style={{ animationDelay: "100ms" }}>
-              <Link href={`/shop?category=${collections[0].slug}`}>
+          <h2 className="font-serif text-3xl text-foreground mb-8 animate-fade-in">
+            Shop by Category
+          </h2>
+          
+          {/* Featured Large Category - First Item */}
+          {categories.length > 0 && (
+            <div className="mb-12 animate-fade-in" style={{ animationDelay: "100ms" }}>
+              <Link href={`/shop?category=${categories[0].slug}`}>
                 <div className="relative overflow-hidden rounded-3xl bg-card boty-shadow group cursor-pointer">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
                     {/* Image */}
-                    <div className="relative h-64 md:h-96 overflow-hidden bg-muted">
-                      {collections[0].image && (
+                    <div className="relative h-64 md:h-80 overflow-hidden bg-muted">
+                      {categories[0].image && (
                         <Image
-                          src={collections[0].image}
-                          alt={collections[0].name}
+                          src={categories[0].image}
+                          alt={categories[0].name}
                           fill
                           className="object-cover group-hover:scale-105 boty-transition"
                         />
@@ -50,16 +151,16 @@ export default function CollectionsPage() {
                     {/* Content */}
                     <div className="p-8 md:p-12 flex flex-col justify-center">
                       <span className="text-sm font-medium text-primary mb-2 uppercase tracking-wide">
-                        Featured
+                        Featured Category
                       </span>
-                      <h2 className="font-serif text-4xl md:text-5xl text-foreground mb-4">
-                        {collections[0].name}
-                      </h2>
-                      <p className="text-foreground/70 mb-8 leading-relaxed">
-                        {collections[0].description}
+                      <h3 className="font-serif text-3xl md:text-4xl text-foreground mb-4">
+                        {categories[0].name}
+                      </h3>
+                      <p className="text-foreground/70 mb-6 leading-relaxed">
+                        {categories[0].description}
                       </p>
                       <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-4 boty-transition">
-                        <span>Explore Collection</span>
+                        <span>Explore Category</span>
                         <ArrowRight className="w-5 h-5" />
                       </div>
                     </div>
@@ -69,22 +170,22 @@ export default function CollectionsPage() {
             </div>
           )}
 
-          {/* Secondary Collections Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {collections.slice(1).map((collection, idx) => (
+          {/* Secondary Categories Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {categories.slice(1).map((category, idx) => (
               <Link
-                key={collection.id}
-                href={`/shop?category=${collection.slug}`}
+                key={category.id}
+                href={`/shop?category=${category.slug}`}
                 className="group animate-fade-in"
-                style={{ animationDelay: `${(idx + 1) * 100}ms` }}
+                style={{ animationDelay: `${(idx + 1) * 80}ms` }}
               >
                 <div className="relative overflow-hidden rounded-2xl bg-card boty-shadow hover:boty-shadow-lg boty-transition h-full">
                   {/* Image Container */}
-                  <div className="relative h-72 overflow-hidden bg-muted">
-                    {collection.image && (
+                  <div className="relative h-56 overflow-hidden bg-muted">
+                    {category.image && (
                       <Image
-                        src={collection.image}
-                        alt={collection.name}
+                        src={category.image}
+                        alt={category.name}
                         fill
                         className="object-cover group-hover:scale-110 boty-transition"
                       />
@@ -92,13 +193,13 @@ export default function CollectionsPage() {
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 boty-transition" />
                   </div>
 
-                  {/* Content Overlay */}
+                  {/* Content */}
                   <div className="p-6">
-                    <h3 className="font-serif text-2xl text-foreground mb-2 group-hover:text-primary boty-transition">
-                      {collection.name}
+                    <h3 className="font-serif text-xl text-foreground mb-2 group-hover:text-primary boty-transition">
+                      {category.name}
                     </h3>
-                    <p className="text-sm text-foreground/70 mb-4 line-clamp-2">
-                      {collection.description}
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                      {category.description}
                     </p>
                     <div className="flex items-center gap-2 text-primary font-medium text-sm group-hover:gap-3 boty-transition">
                       <span>Shop Now</span>

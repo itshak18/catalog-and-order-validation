@@ -1,0 +1,159 @@
+[
+  {
+    "id": "spring-sale",
+    "slug": "spring-sale",
+    "name": "Spring Sale",
+    "description": "Refresh your skincare routine with our biggest spring savings. Up to 30% off select items.",
+    "type": "sale",
+    "filters": {
+      "badges": ["Sale"]
+    },
+    "banner": {
+      "eyebrow": "Limited Time",
+      "headline": "Spring Sale — Up to 30% Off",
+      "subtext": "Refresh your routine with our best-selling formulas at special prices.",
+      "image": "/images/banners/spring-banner.jpg",
+      "theme": "seasonal",
+      "ctaLabel": "Shop the Sale",
+      "ctaHref": "/collection/spring-sale"
+    },
+    "badge": {
+      "label": "Sale",
+      "variant": "sale"
+    },
+    "showBanner": true,
+    "gridColumns": 3,
+    "sortBy": "popular",
+    "isActive": true,
+    "createdAt": "2025-03-01T00:00:00Z",
+    "updatedAt": "2025-03-20T00:00:00Z"
+  },
+  {
+    "id": "new-arrivals",
+    "slug": "new-arrivals",
+    "name": "New Arrivals",
+    "description": "Discover the latest additions to our collection. Fresh formulas crafted with care.",
+    "type": "new",
+    "filters": {
+      "badges": ["New"]
+    },
+    "banner": {
+      "eyebrow": "Just Landed",
+      "headline": "New Arrivals",
+      "subtext": "Be the first to experience our latest botanical innovations.",
+      "image": "/images/banners/collection-banner.jpg",
+      "theme": "minimal",
+      "ctaLabel": "Explore New",
+      "ctaHref": "/collection/new-arrivals"
+    },
+    "badge": {
+      "label": "New",
+      "variant": "new"
+    },
+    "showBanner": true,
+    "gridColumns": 3,
+    "sortBy": "newest",
+    "isActive": true,
+    "createdAt": "2025-01-15T00:00:00Z",
+    "updatedAt": "2025-03-25T00:00:00Z"
+  },
+  {
+    "id": "bestsellers",
+    "slug": "bestsellers",
+    "name": "Bestsellers",
+    "description": "Our most-loved products. Tried, tested, and adored by thousands.",
+    "type": "curated",
+    "filters": {
+      "badges": ["Bestseller"]
+    },
+    "banner": {
+      "eyebrow": "Customer Favorites",
+      "headline": "Our Bestsellers",
+      "subtext": "The products our community can't stop raving about.",
+      "theme": "default",
+      "ctaLabel": "Shop Bestsellers",
+      "ctaHref": "/collection/bestsellers"
+    },
+    "showBanner": true,
+    "gridColumns": 3,
+    "sortBy": "popular",
+    "isActive": true,
+    "createdAt": "2024-06-01T00:00:00Z",
+    "updatedAt": "2025-03-22T00:00:00Z"
+  },
+  {
+    "id": "holiday-gift-guide",
+    "slug": "holiday-gift-guide",
+    "name": "Holiday Gift Guide",
+    "description": "Thoughtful gifts for the skincare lovers in your life. Beautifully packaged.",
+    "type": "seasonal",
+    "productIds": ["radiance-serum", "hydrating-cream", "renewal-mask", "botanical-cleansing-oil"],
+    "banner": {
+      "eyebrow": "Season of Giving",
+      "headline": "Holiday Gift Guide",
+      "subtext": "Give the gift of radiant skin. Luxurious sets at special prices.",
+      "image": "/images/banners/holiday-banner.jpg",
+      "theme": "festive",
+      "ctaLabel": "Shop Gifts",
+      "ctaHref": "/collection/holiday-gift-guide"
+    },
+    "badge": {
+      "label": "Gift",
+      "variant": "seasonal"
+    },
+    "showBanner": true,
+    "gridColumns": 2,
+    "sortBy": "price-desc",
+    "isActive": true,
+    "createdAt": "2024-11-01T00:00:00Z",
+    "updatedAt": "2025-01-10T00:00:00Z"
+  },
+  {
+    "id": "serums-collection",
+    "slug": "serums-collection",
+    "name": "Serums",
+    "description": "Concentrated formulas with active ingredients for targeted skin concerns.",
+    "type": "category",
+    "categorySlug": "serums",
+    "banner": {
+      "eyebrow": "Targeted Solutions",
+      "headline": "Serum Collection",
+      "subtext": "Powerful actives for visible results. Find your perfect formula.",
+      "theme": "default",
+      "ctaLabel": "Shop Serums",
+      "ctaHref": "/collection/serums-collection"
+    },
+    "showBanner": true,
+    "gridColumns": 3,
+    "sortBy": "popular",
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2025-03-15T00:00:00Z"
+  },
+  {
+    "id": "exclusive-limited",
+    "slug": "exclusive-limited",
+    "name": "Limited Edition",
+    "description": "Exclusive formulations available for a limited time only.",
+    "type": "exclusive",
+    "productIds": ["age-defense-serum", "renewal-mask"],
+    "banner": {
+      "eyebrow": "While Supplies Last",
+      "headline": "Limited Edition",
+      "subtext": "Exclusive formulas you won't find anywhere else.",
+      "theme": "bold",
+      "ctaLabel": "Shop Exclusive",
+      "ctaHref": "/collection/exclusive-limited"
+    },
+    "badge": {
+      "label": "Exclusive",
+      "variant": "exclusive"
+    },
+    "showBanner": true,
+    "gridColumns": 2,
+    "sortBy": "newest",
+    "isActive": true,
+    "createdAt": "2025-02-01T00:00:00Z",
+    "updatedAt": "2025-03-20T00:00:00Z"
+  }
+]
