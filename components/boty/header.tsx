@@ -41,6 +41,12 @@ export function Header() {
               Collections
             </Link>
             <Link
+              href="/gift-cards"
+              className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
+            >
+              Gift Cards
+            </Link>
+            <Link
               href="/about"
               className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
             >
@@ -114,6 +120,12 @@ export function Header() {
               className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
             >
               Collections
+            </Link>
+            <Link
+              href="/gift-cards"
+              className="text-sm tracking-wide text-foreground/70 hover:text-foreground boty-transition"
+            >
+              Gift Cards
             </Link>
             <Link
               href="/about"

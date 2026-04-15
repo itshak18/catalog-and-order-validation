@@ -9,7 +9,7 @@ const footerLinks = {
     { name: "Serums", href: "/shop?category=serums" },
     { name: "Moisturizers", href: "/shop?category=moisturizers" },
     { name: "Cleansers", href: "/shop?category=cleansers" },
-    { name: "Gift Sets", href: "/shop" }
+    { name: "Gift Cards", href: "/gift-cards" }
   ],
   about: [
     { name: "Our Story", href: "/about" },
